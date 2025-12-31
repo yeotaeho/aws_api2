@@ -1,0 +1,94 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.7' apply false
+	id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+allprojects {
+	group = 'com.labzang'
+	version = '0.0.1-SNAPSHOT'
+	
+	repositories {
+		mavenCentral()
+	}
+}
+
+// 루트 프로젝트 (API Gateway 서비스) 설정
+apply plugin: 'java'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+	}
+}
+
+bootJar.enabled = true
+jar.enabled = false
+
+dependencies {
+	// Spring Cloud Gateway 제거 - MVC 패턴으로 전환
+	// implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
+	// implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+	// implementation 'org.springframework.cloud:spring-cloud-starter-config'
+	
+	// Swagger UI - MVC 버전 사용
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+	// OAuth 서비스 의존성 (통합) - MVC 패턴
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// WebFlux 완전 제거 - MVC 패턴만 사용
+	// implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+subprojects {
+	apply plugin: 'java'
+	apply plugin: 'org.springframework.boot'
+	apply plugin: 'io.spring.dependency-management'
+	
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
+	}
+	
+	dependencyManagement {
+		imports {
+			mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+		}
+	}
+	
+	bootJar.enabled = true
+	jar.enabled = false
+	
+	dependencies {
+		developmentOnly 'org.springframework.boot:spring-boot-devtools'
+		compileOnly 'org.projectlombok:lombok'
+		annotationProcessor 'org.projectlombok:lombok'
+		testImplementation 'org.springframework.boot:spring-boot-starter-test'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	}
+	
+	tasks.named('test') {
+		useJUnitPlatform()
+	}
+}

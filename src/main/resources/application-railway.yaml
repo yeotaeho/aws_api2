@@ -1,0 +1,165 @@
+# ============================================================================
+# Railway 환경용 Spring Boot 설정
+# ============================================================================
+
+spring:
+  application:
+    name: gateway
+  
+  # Railway PostgreSQL 데이터베이스 설정
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # JPA/Hibernate 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+  
+  # Upstash Redis 설정 (TLS 필수)
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+        ssl:
+          enabled: true
+          verify-peer: true
+
+  # Cloud Gateway 설정
+  cloud:
+    gateway:
+      routes:
+        # Core Services
+        - id: oauth-service
+          uri: http://oauthservice:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+            
+        - id: user-service
+          uri: http://userservice:8082
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+            
+        # ERP Services
+        - id: customer-service
+          uri: http://customerservice:9009
+          predicates:
+            - Path=/api/erp/customer/**
+          filters:
+            - StripPrefix=2
+            
+        - id: dashboard-service
+          uri: http://dashboardservice:9008
+          predicates:
+            - Path=/api/erp/dashboard/**
+          filters:
+            - StripPrefix=2
+            
+        - id: order-service
+          uri: http://orderservice:9007
+          predicates:
+            - Path=/api/erp/order/**
+          filters:
+            - StripPrefix=2
+            
+        - id: report-service
+          uri: http://reportservice:9006
+          predicates:
+            - Path=/api/erp/report/**
+          filters:
+            - StripPrefix=2
+            
+        - id: setting-service
+          uri: http://settingservice:9005
+          predicates:
+            - Path=/api/erp/setting/**
+          filters:
+            - StripPrefix=2
+            
+        - id: stock-service
+          uri: http://stockservice:9004
+          predicates:
+            - Path=/api/erp/stock/**
+          filters:
+            - StripPrefix=2
+            
+        # AI Services
+        - id: ai-auth-service
+          uri: http://ai-authservice:9002
+          predicates:
+            - Path=/api/ai/auth/**
+          filters:
+            - StripPrefix=2
+            
+        - id: crawler-service
+          uri: http://crawlerservice:9001
+          predicates:
+            - Path=/api/ai/crawler/**
+          filters:
+            - StripPrefix=2
+            
+        - id: chatbot-service
+          uri: http://chatbotservice:9003
+          predicates:
+            - Path=/api/ai/chatbot/**
+          filters:
+            - StripPrefix=2
+
+server:
+  port: 8080
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:2592000000}
+
+# 로깅 설정
+logging:
+  level:
+    com.labzang: INFO
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 관리 엔드포인트
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
