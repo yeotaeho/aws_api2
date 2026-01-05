@@ -18,11 +18,11 @@ spring:
   # Redis 연결 실패 시에도 애플리케이션은 정상 시작됩니다
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:${REDIS_HOST:localhost}}
-      port: ${SPRING_REDIS_PORT:${REDIS_PORT:6379}}
-      password: ${SPRING_REDIS_PASSWORD:${REDIS_PASSWORD:}}
+      host: ${SPRING_REDIS_HOST:${REDIS_HOST:${UPSTASH_REDIS_HOST:localhost}}}
+      port: ${SPRING_REDIS_PORT:${REDIS_PORT:${UPSTASH_REDIS_PORT:6379}}}
+      password: ${SPRING_REDIS_PASSWORD:${REDIS_PASSWORD:${UPSTASH_REDIS_PASSWORD:}}}
       ssl:
-        enabled: ${SPRING_REDIS_SSL_ENABLED:false}
+        enabled: ${SPRING_REDIS_SSL_ENABLED:true}
       timeout: 10000ms
       lettuce:
         pool:
@@ -30,7 +30,7 @@ spring:
           max-idle: 8
           min-idle: 0
         ssl:
-          enabled: ${SPRING_REDIS_SSL_ENABLED:false}
+          enabled: ${SPRING_REDIS_SSL_ENABLED:true}
           verify-peer: false
         shutdown-timeout: 200ms
       # Redis 연결 실패 시에도 애플리케이션 시작 허용
@@ -64,3 +64,14 @@ kakao:
   rest-api-key: ${KAKAO_REST_API_KEY:}
   client-secret: ${KAKAO_CLIENT_SECRET:}
   redirect-uri: ${KAKAO_REDIRECT_URI:}
+
+naver:
+  client-id: ${NAVER_CLIENT_ID:}
+  client-secret: ${NAVER_CLIENT_SECRET:}
+  redirect-uri: ${NAVER_REDIRECT_URI:}
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:2592000000}

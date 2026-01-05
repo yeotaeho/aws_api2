@@ -5,8 +5,8 @@ plugins {
 }
 
 allprojects {
-	group = 'com.labzang'
-	version = '0.0.1-SNAPSHOT'
+group = 'com.labzang'
+version = '0.0.1-SNAPSHOT'
 	
 	repositories {
 		mavenCentral()
@@ -69,26 +69,26 @@ subprojects {
 		toolchain {
 			languageVersion = JavaLanguageVersion.of(21)
 		}
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
 	}
-	
-	dependencyManagement {
-		imports {
-			mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
-		}
-	}
-	
-	bootJar.enabled = true
-	jar.enabled = false
-	
-	dependencies {
-		developmentOnly 'org.springframework.boot:spring-boot-devtools'
-		compileOnly 'org.projectlombok:lombok'
-		annotationProcessor 'org.projectlombok:lombok'
-		testImplementation 'org.springframework.boot:spring-boot-starter-test'
-		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	}
-	
-	tasks.named('test') {
-		useJUnitPlatform()
-	}
+}
+
+bootJar.enabled = true
+jar.enabled = false
+
+dependencies {
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
 }

@@ -1,0 +1,20 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-labzang
+    ports:
+      - "8080:8080"
+    networks:
+      - api-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    env_file:
+      - ../.env
+    restart: on-failure
+
+networks:
+  api-network:
+    driver: bridge

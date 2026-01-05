@@ -1,0 +1,98 @@
+name: Build & Push API Image to DockerHub & Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: yeotaeho/apiserver
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 기존 컨테이너 중지 및 제거
+            docker stop apiserver || true
+            docker rm apiserver || true
+            
+            # 최신 이미지 pull
+            docker pull ${{ env.IMAGE_NAME }}:latest
+            
+            # 새 컨테이너 실행
+            docker run -d \
+              --name apiserver \
+              -p 8080:8080 \
+              --restart unless-stopped \
+              ${{ env.IMAGE_NAME }}:latest
+            
+            # 사용하지 않는 이미지 정리
+            docker image prune -f
+
+
+            deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE="${{ env.IMAGE_NAME }}:latest"
+            CONTAINER="apiserver"
+
+            docker pull $IMAGE
+
+            # 기존 컨테이너 중지/삭제 (없어도 에러 안나게)
+            docker stop $CONTAINER || true
+            docker rm $CONTAINER || true
+
+            # 새 컨테이너 실행 (필요한 옵션은 프로젝트에 맞게 수정)
+            docker run -d --name $CONTAINER \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              $IMAGE
+
+            docker image prune -f
