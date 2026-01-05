@@ -71,6 +71,7 @@ jobs:
             docker run -d --name $CONTAINER \
               --restart unless-stopped \
               -p 8080:8080 \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               $IMAGE
 
             docker image prune -f
