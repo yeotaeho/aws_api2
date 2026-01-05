@@ -20,7 +20,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "http://localhost:3000",
                         "http://localhost:4000",
                         "http://127.0.0.1:3000",
-                        "http://127.0.0.1:4000"
+                        "http://127.0.0.1:4000",
+                        "https://admin.yeotaeho.kr",
+                        "https://www.yeotaeho.kr",
+                        "https://chat.yeotaeho.kr"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
