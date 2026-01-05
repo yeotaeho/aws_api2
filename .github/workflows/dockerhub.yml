@@ -72,6 +72,18 @@ jobs:
               --restart unless-stopped \
               -p 8080:8080 \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e UPSTASH_REDIS_HOST="${{ secrets.UPSTASH_REDIS_HOST }}" \
+              -e UPSTASH_REDIS_PORT="${{ secrets.UPSTASH_REDIS_PORT }}" \
+              -e UPSTASH_REDIS_PASSWORD="${{ secrets.UPSTASH_REDIS_PASSWORD }}" \
+              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              -e GOOGLE_REDIRECT_URI="${{ secrets.GOOGLE_REDIRECT_URI }}" \
+              -e KAKAO_REST_API_KEY="${{ secrets.KAKAO_REST_API_KEY }}" \
+              -e KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}" \
+              -e KAKAO_REDIRECT_URI="${{ secrets.KAKAO_REDIRECT_URI }}" \
+              -e NAVER_CLIENT_ID="${{ secrets.NAVER_CLIENT_ID }}" \
+              -e NAVER_CLIENT_SECRET="${{ secrets.NAVER_CLIENT_SECRET }}" \
+              -e NAVER_REDIRECT_URI="${{ secrets.NAVER_REDIRECT_URI }}" \
               $IMAGE
 
             docker image prune -f
