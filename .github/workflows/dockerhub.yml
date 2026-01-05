@@ -33,7 +33,7 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:v1
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   deploy:
@@ -54,14 +54,18 @@ jobs:
           script: |
             set -e
 
-            IMAGE="${{ env.IMAGE_NAME }}:latest"
+            IMAGE="${{ env.IMAGE_NAME }}:v1"
             CONTAINER="apiserver"
-
-            docker pull $IMAGE
 
             # 기존 컨테이너 중지/삭제 (없어도 에러 안나게)
             docker stop $CONTAINER || true
             docker rm $CONTAINER || true
+
+            # 로컬 이미지 제거 (캐시 문제 방지를 위해 최신 이미지 강제 다운로드)
+            docker rmi $IMAGE || true
+
+            # 새 이미지 pull
+            docker pull $IMAGE
 
             # 새 컨테이너 실행 (필요한 옵션은 프로젝트에 맞게 수정)
             docker run -d --name $CONTAINER \
