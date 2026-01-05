@@ -48,8 +48,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 60s
+          timeout: 120s
           command_timeout: 10m
+          debug: true
           script: |
             set -e
 
