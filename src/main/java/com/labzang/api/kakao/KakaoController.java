@@ -19,7 +19,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/kakao")
+@RequestMapping({"/kakao", "/auth/kakao"})
 @RequiredArgsConstructor
 public class KakaoController {
 

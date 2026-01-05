@@ -16,7 +16,7 @@ import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
-@RequestMapping("/google")
+@RequestMapping({"/google", "/auth/google"})
 public class GoogleController {
 
     private final TokenService tokenService;
