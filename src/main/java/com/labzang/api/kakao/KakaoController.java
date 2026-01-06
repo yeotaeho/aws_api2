@@ -2,14 +2,13 @@ package com.labzang.api.kakao;
 
 import com.labzang.api.jwt.JwtTokenProvider;
 import com.labzang.api.jwt.JwtUtil;
-import com.labzang.api.kakao.dto.KakaoTokenResponse;
-import com.labzang.api.kakao.dto.KakaoUserInfo;
 import com.labzang.api.token.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
@@ -78,10 +77,10 @@ public class KakaoController {
 
     /**
      * 카카오 인증 콜백 처리
-     * Authorization Code를 받아서 프론트엔드로 리다이렉트
+     * Authorization Code를 받아서 바로 토큰 교환 및 JWT 생성 후 프론트엔드로 리다이렉트
      */
     @GetMapping("/callback")
-    public ResponseEntity<?> kakaoCallback(
+    public RedirectView kakaoCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String error,
             @RequestParam(required = false) String error_description) {
@@ -98,55 +97,104 @@ public class KakaoController {
             frontendUrl = "http://localhost:3000";
         }
 
-        try {
-            if (code != null) {
-                // Authorization Code를 Redis에 임시 저장 (10분 유효)
-                tokenService.saveAuthorizationCode("kakao", code, null, 600);
-                System.out.println("✅ Authorization Code를 Redis에 저장했습니다.");
-
-                // 프론트엔드로 인가 코드와 함께 리다이렉트
-                String redirectUrl = frontendUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
-                System.out.println("프론트엔드로 리다이렉트: " + redirectUrl);
-                return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", redirectUrl)
-                        .build();
-            } else if (error != null) {
-                // 에러가 있는 경우 프론트엔드로 에러와 함께 리다이렉트
-                String redirectUrl = frontendUrl + "?error=" + URLEncoder.encode(error, StandardCharsets.UTF_8);
-                if (error_description != null) {
-                    redirectUrl += "&error_description=" + URLEncoder.encode(error_description, StandardCharsets.UTF_8);
-                }
-                System.out.println("에러 발생, 프론트엔드로 리다이렉트: " + redirectUrl);
-                return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", redirectUrl)
-                        .build();
-            } else {
-                // 인가 코드가 없는 경우
-                String redirectUrl = frontendUrl + "?error=no_code&error_description="
-                        + URLEncoder.encode("인증 코드가 없습니다.", StandardCharsets.UTF_8);
-                System.out.println("인가 코드 없음, 프론트엔드로 리다이렉트: " + redirectUrl);
-                return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", redirectUrl)
-                        .build();
-            }
-        } catch (Exception e) {
-            System.err.println("콜백 처리 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
-
-            // 예외 발생 시에도 프론트엔드로 리다이렉트
+        if (code != null) {
             try {
-                String redirectUrl = frontendUrl + "?error=server_error&error_description="
-                        + URLEncoder.encode("서버 오류가 발생했습니다.", StandardCharsets.UTF_8);
-                return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", redirectUrl)
-                        .build();
-            } catch (Exception ex) {
-                // 리다이렉트 URL 생성 실패 시 JSON 응답 반환
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("message", "콜백 처리 중 오류가 발생했습니다: " + e.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                // 1. 카카오 Access Token 교환
+                System.out.println("카카오 API로 Access Token 요청 중...");
+                Map<String, Object> kakaoTokenResponse = kakaoOAuthService.getAccessToken(code);
+                String kakaoAccessToken = (String) kakaoTokenResponse.get("access_token");
+                String kakaoRefreshToken = (String) kakaoTokenResponse.get("refresh_token");
+                Object expiresIn = kakaoTokenResponse.get("expires_in"); // 초 단위
+
+                if (kakaoAccessToken == null) {
+                    throw new RuntimeException("카카오 Access Token을 받을 수 없습니다.");
+                }
+
+                // 2. 카카오 사용자 정보 조회
+                System.out.println("카카오 사용자 정보 조회 중...");
+                Map<String, Object> kakaoUserInfo = kakaoOAuthService.getUserInfo(kakaoAccessToken);
+                Map<String, Object> userInfo = kakaoOAuthService.extractUserInfo(kakaoUserInfo);
+
+                // 3. 사용자 ID 추출
+                String userId = userInfo.get("kakao_id").toString();
+
+                // 4. 카카오 OAuth 원본 토큰을 Redis에 저장 (선택적 - 실패해도 계속 진행)
+                try {
+                    long kakaoTokenExpireTime = expiresIn != null ? Long.parseLong(expiresIn.toString()) : 21600; // 기본 6시간 (카카오 기본값)
+                    tokenService.saveOAuthAccessToken("kakao", userId, kakaoAccessToken, kakaoTokenExpireTime);
+
+                    if (kakaoRefreshToken != null) {
+                        // Refresh Token은 60일 유효 (카카오 기본값)
+                        tokenService.saveOAuthRefreshToken("kakao", userId, kakaoRefreshToken, 5184000);
+                    }
+                    System.out.println("✅ Redis에 OAuth 토큰 저장 완료");
+                } catch (Exception redisError) {
+                    System.err.println("⚠️ Redis 저장 실패 (계속 진행): " + redisError.getMessage());
+                    redisError.printStackTrace();
+                }
+
+                // 5. JWT 토큰 생성 (자체 JWT) - Redis와 무관하게 항상 생성
+                String jwtAccessToken = jwtTokenProvider.generateAccessToken(userId, "kakao", userInfo);
+                String jwtRefreshToken = jwtTokenProvider.generateRefreshToken(userId, "kakao");
+
+                // 6. JWT 토큰을 Redis에 저장 (선택적 - 실패해도 계속 진행)
+                try {
+                    tokenService.saveAccessToken("kakao", userId, jwtAccessToken, 3600);
+                    tokenService.saveRefreshToken("kakao", userId, jwtRefreshToken, 2592000);
+                    System.out.println("✅ Redis에 JWT 토큰 저장 완료");
+                } catch (Exception redisError) {
+                    System.err.println("⚠️ Redis 저장 실패 (계속 진행): " + redisError.getMessage());
+                    redisError.printStackTrace();
+                }
+
+                // 7. 프론트엔드로 리다이렉트 (JWT 토큰 포함)
+                String redirectUrl = frontendUrl + "?token="
+                        + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
+                if (jwtRefreshToken != null) {
+                    redirectUrl += "&refresh_token=" + URLEncoder.encode(jwtRefreshToken, StandardCharsets.UTF_8);
+                }
+
+                System.out.println("JWT 토큰 생성 완료, 프론트엔드로 리다이렉트: " + redirectUrl);
+                return new RedirectView(redirectUrl);
+
+            } catch (Exception e) {
+                // 상세한 에러 로깅
+                System.err.println("========================================");
+                System.err.println("❌ 카카오 인증 처리 중 오류 발생");
+                System.err.println("에러 메시지: " + e.getMessage());
+                System.err.println("에러 클래스: " + e.getClass().getName());
+                System.err.println("========================================");
+                e.printStackTrace();
+                System.err.println("========================================");
+
+                // 에러 메시지와 코드를 프론트엔드로 전달
+                String errorMessage = e.getMessage() != null ? e.getMessage() : "알 수 없는 오류";
+                String errorClass = e.getClass().getSimpleName();
+
+                // 에러 발생 시 프론트엔드로 리다이렉트 (상세 정보 포함)
+                String redirectUrl = frontendUrl
+                        + "?error=" + URLEncoder.encode("인증 처리 중 오류가 발생했습니다.", StandardCharsets.UTF_8)
+                        + "&error_code=" + URLEncoder.encode(errorClass, StandardCharsets.UTF_8)
+                        + "&error_message=" + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)
+                        + "&error_detail=" + URLEncoder.encode(getErrorDetail(e), StandardCharsets.UTF_8);
+
+                System.err.println("에러 리다이렉트 URL: " + redirectUrl);
+                return new RedirectView(redirectUrl);
             }
+        } else if (error != null) {
+            // 에러 시 프론트엔드로 리다이렉트 (에러 정보 포함)
+            String redirectUrl = frontendUrl + "?error=" + URLEncoder.encode(error, StandardCharsets.UTF_8);
+            if (error_description != null) {
+                redirectUrl += "&error_description=" + URLEncoder.encode(error_description, StandardCharsets.UTF_8);
+            }
+
+            System.out.println("에러 발생, 프론트엔드로 리다이렉트: " + redirectUrl);
+            return new RedirectView(redirectUrl);
+        } else {
+            // 인증 코드가 없는 경우
+            String redirectUrl = frontendUrl + "?error=" + URLEncoder.encode("인증 코드가 없습니다.", StandardCharsets.UTF_8);
+            System.out.println("인증 코드 없음, 프론트엔드로 리다이렉트: " + redirectUrl);
+            return new RedirectView(redirectUrl);
         }
     }
 
@@ -377,5 +425,21 @@ public class KakaoController {
         response.put("message", "카카오 요청이 성공적으로 처리되었습니다.");
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /**
+     * 에러 상세 정보를 문자열로 변환
+     */
+    private String getErrorDetail(Exception e) {
+        StringBuilder detail = new StringBuilder();
+        detail.append("클래스: ").append(e.getClass().getName()).append("; ");
+        detail.append("메시지: ").append(e.getMessage()).append("; ");
+
+        Throwable cause = e.getCause();
+        if (cause != null) {
+            detail.append("원인: ").append(cause.getClass().getSimpleName()).append(" - ").append(cause.getMessage());
+        }
+
+        return detail.toString();
     }
 }
