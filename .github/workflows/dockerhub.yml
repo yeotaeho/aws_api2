@@ -85,6 +85,9 @@ jobs:
               -e NAVER_CLIENT_SECRET="${{ secrets.NAVER_CLIENT_SECRET }}" \
               -e NAVER_REDIRECT_URI="${{ secrets.NAVER_REDIRECT_URI }}" \
               -e FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
+              -e NEON_DATABASE_URL="${{ secrets.NEON_DATABASE_URL }}" \
+              -e NEON_DATABASE_USER="${{ secrets.NEON_DATABASE_USER }}" \
+              -e NEON_DATABASE_PASSWORD="${{ secrets.NEON_DATABASE_PASSWORD }}" \
               $IMAGE
 
             docker image prune -f

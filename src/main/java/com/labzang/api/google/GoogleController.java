@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
-@RequestMapping({"/google", "/auth/google"})
+@RequestMapping({ "/google", "/auth/google" })
 public class GoogleController {
 
     private final TokenService tokenService;
@@ -163,25 +163,25 @@ public class GoogleController {
                 // 5. Refresh Token을 HttpOnly 쿠키로 설정
                 if (jwtRefreshToken != null) {
                     ResponseCookie refreshTokenCookie = ResponseCookie.from("refresh_token", jwtRefreshToken)
-                            .httpOnly(true)              // JavaScript 접근 불가 (XSS 방지)
-                            .secure(false)               // 개발 환경: false, 프로덕션: true (HTTPS)
-                            .sameSite("Lax")             // CSRF 방지
-                            .path("/")                   // 전체 경로
-                            .maxAge(2592000)             // 30일 (초 단위)
+                            .httpOnly(true) // JavaScript 접근 불가 (XSS 방지)
+                            .secure(false) // 개발 환경: false, 프로덕션: true (HTTPS)
+                            .sameSite("Lax") // CSRF 방지
+                            .path("/") // 전체 경로
+                            .maxAge(2592000) // 30일 (초 단위)
                             .build();
 
                     System.out.println("✅ Refresh Token을 HttpOnly 쿠키로 설정 완료");
-                    
+
                     // 6. 프론트엔드로 리다이렉트 (Access Token만 URL에 포함)
                     String redirectUrl = frontendUrl + "?token="
                             + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
 
                     System.out.println("JWT 토큰 생성 완료, 프론트엔드로 리다이렉트: " + redirectUrl);
-                    
+
                     HttpHeaders headers = new HttpHeaders();
                     headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
                     headers.add(HttpHeaders.LOCATION, redirectUrl);
-                    
+
                     return ResponseEntity.status(HttpStatus.FOUND)
                             .headers(headers)
                             .build();
