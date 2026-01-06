@@ -97,6 +97,7 @@ public class KakaoController {
         if (frontendUrl == null || frontendUrl.isEmpty()) {
             frontendUrl = "http://localhost:3000";
         }
+        String frontendCallbackUrl = frontendUrl + "/kakao-callback";
 
         try {
             if (code != null) {
