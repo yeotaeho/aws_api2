@@ -1,9 +1,10 @@
 package com.labzang.api.google;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.view.RedirectView;
 import com.labzang.api.token.TokenService;
 import com.labzang.api.jwt.JwtUtil;
 import com.labzang.api.jwt.JwtTokenProvider;
@@ -14,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping({"/google", "/auth/google"})
@@ -90,11 +92,12 @@ public class GoogleController {
      * Authorization Code를 받아서 바로 토큰 교환 및 JWT 생성 후 프론트엔드로 리다이렉트
      */
     @GetMapping("/callback")
-    public RedirectView googleCallback(
+    public ResponseEntity<?> googleCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
-            @RequestParam(required = false) String error_description) {
+            @RequestParam(required = false) String error_description,
+            HttpServletResponse response) {
 
         System.out.println("=== 구글 콜백 요청 수신 ===");
         System.out.println("Code: " + code);
@@ -157,15 +160,39 @@ public class GoogleController {
                     redisError.printStackTrace();
                 }
 
-                // 5. 프론트엔드로 리다이렉트 (JWT 토큰 포함)
-                String redirectUrl = frontendUrl + "?token="
-                        + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
+                // 5. Refresh Token을 HttpOnly 쿠키로 설정
                 if (jwtRefreshToken != null) {
-                    redirectUrl += "&refresh_token=" + URLEncoder.encode(jwtRefreshToken, StandardCharsets.UTF_8);
-                }
+                    ResponseCookie refreshTokenCookie = ResponseCookie.from("refresh_token", jwtRefreshToken)
+                            .httpOnly(true)              // JavaScript 접근 불가 (XSS 방지)
+                            .secure(false)               // 개발 환경: false, 프로덕션: true (HTTPS)
+                            .sameSite("Lax")             // CSRF 방지
+                            .path("/")                   // 전체 경로
+                            .maxAge(2592000)             // 30일 (초 단위)
+                            .build();
 
-                System.out.println("JWT 토큰 생성 완료, 프론트엔드로 리다이렉트: " + redirectUrl);
-                return new RedirectView(redirectUrl);
+                    System.out.println("✅ Refresh Token을 HttpOnly 쿠키로 설정 완료");
+                    
+                    // 6. 프론트엔드로 리다이렉트 (Access Token만 URL에 포함)
+                    String redirectUrl = frontendUrl + "?token="
+                            + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
+
+                    System.out.println("JWT 토큰 생성 완료, 프론트엔드로 리다이렉트: " + redirectUrl);
+                    
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
+                    headers.add(HttpHeaders.LOCATION, redirectUrl);
+                    
+                    return ResponseEntity.status(HttpStatus.FOUND)
+                            .headers(headers)
+                            .build();
+                } else {
+                    // Refresh Token이 없는 경우 (기존 방식)
+                    String redirectUrl = frontendUrl + "?token="
+                            + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
+                    return ResponseEntity.status(HttpStatus.FOUND)
+                            .header(HttpHeaders.LOCATION, redirectUrl)
+                            .build();
+                }
 
             } catch (Exception e) {
                 // 상세한 에러 로깅
@@ -189,7 +216,9 @@ public class GoogleController {
                         + "&error_detail=" + URLEncoder.encode(getErrorDetail(e), StandardCharsets.UTF_8);
 
                 System.err.println("에러 리다이렉트 URL: " + redirectUrl);
-                return new RedirectView(redirectUrl);
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, redirectUrl)
+                        .build();
             }
         } else if (error != null) {
             // 에러 시 프론트엔드로 리다이렉트 (에러 정보 포함)
@@ -199,12 +228,16 @@ public class GoogleController {
             }
 
             System.out.println("에러 발생, 프론트엔드로 리다이렉트: " + redirectUrl);
-            return new RedirectView(redirectUrl);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, redirectUrl)
+                    .build();
         } else {
             // 인증 코드가 없는 경우
             String redirectUrl = frontendUrl + "?error=" + URLEncoder.encode("인증 코드가 없습니다.", StandardCharsets.UTF_8);
             System.out.println("인증 코드 없음, 프론트엔드로 리다이렉트: " + redirectUrl);
-            return new RedirectView(redirectUrl);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, redirectUrl)
+                    .build();
         }
     }
 
