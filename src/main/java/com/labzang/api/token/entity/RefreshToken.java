@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "refresh_tokens", indexes = {
-    @Index(name = "idx_provider_user", columnList = "provider,user_id"),
-    @Index(name = "idx_expires_at", columnList = "expires_at")
+        @Index(name = "idx_provider_user", columnList = "provider,user_id"),
+        @Index(name = "idx_expires_at", columnList = "expires_at")
 })
 @Getter
 @Builder
@@ -43,4 +43,3 @@ public class RefreshToken {
         createdAt = LocalDateTime.now();
     }
 }
-
