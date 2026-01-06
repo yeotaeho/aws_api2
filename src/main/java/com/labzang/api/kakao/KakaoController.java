@@ -97,7 +97,6 @@ public class KakaoController {
         if (frontendUrl == null || frontendUrl.isEmpty()) {
             frontendUrl = "http://localhost:3000";
         }
-        String frontendCallbackUrl = frontendUrl + "/kakao-callback";
 
         try {
             if (code != null) {
@@ -106,14 +105,14 @@ public class KakaoController {
                 System.out.println("✅ Authorization Code를 Redis에 저장했습니다.");
 
                 // 프론트엔드로 인가 코드와 함께 리다이렉트
-                String redirectUrl = frontendCallbackUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+                String redirectUrl = frontendUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
                 System.out.println("프론트엔드로 리다이렉트: " + redirectUrl);
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", redirectUrl)
                         .build();
             } else if (error != null) {
                 // 에러가 있는 경우 프론트엔드로 에러와 함께 리다이렉트
-                String redirectUrl = frontendCallbackUrl + "?error=" + URLEncoder.encode(error, StandardCharsets.UTF_8);
+                String redirectUrl = frontendUrl + "?error=" + URLEncoder.encode(error, StandardCharsets.UTF_8);
                 if (error_description != null) {
                     redirectUrl += "&error_description=" + URLEncoder.encode(error_description, StandardCharsets.UTF_8);
                 }
@@ -123,7 +122,7 @@ public class KakaoController {
                         .build();
             } else {
                 // 인가 코드가 없는 경우
-                String redirectUrl = frontendCallbackUrl + "?error=no_code&error_description="
+                String redirectUrl = frontendUrl + "?error=no_code&error_description="
                         + URLEncoder.encode("인증 코드가 없습니다.", StandardCharsets.UTF_8);
                 System.out.println("인가 코드 없음, 프론트엔드로 리다이렉트: " + redirectUrl);
                 return ResponseEntity.status(HttpStatus.FOUND)
@@ -136,7 +135,7 @@ public class KakaoController {
 
             // 예외 발생 시에도 프론트엔드로 리다이렉트
             try {
-                String redirectUrl = frontendCallbackUrl + "?error=server_error&error_description="
+                String redirectUrl = frontendUrl + "?error=server_error&error_description="
                         + URLEncoder.encode("서버 오류가 발생했습니다.", StandardCharsets.UTF_8);
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", redirectUrl)
