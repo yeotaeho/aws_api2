@@ -31,34 +31,39 @@ public class KakaoController {
     /**
      * 카카오 인증 URL 제공
      * 프론트엔드에서 REST API KEY를 노출하지 않고 인증 URL을 가져올 수 있도록 함
-     * 프론트엔드 콜백 URL을 파라미터로 받아서 사용
+     * 구글 로그인과 동일하게 백엔드에서 redirect_uri를 관리 (환경 변수 또는 동적 생성)
      */
     @GetMapping("/auth-url")
-    public ResponseEntity<Map<String, Object>> getKakaoAuthUrl(
-            @RequestParam(required = false) String redirect_uri) {
+    public ResponseEntity<Map<String, Object>> getKakaoAuthUrl(HttpServletRequest request) {
         System.out.println("=== 카카오 인증 URL 요청 ===");
 
         // 환경 변수에서 가져오기
         String clientId = System.getenv("KAKAO_REST_API_KEY");
+        String redirectUri = System.getenv("KAKAO_REDIRECT_URI");
 
-        // 프론트엔드에서 전달한 redirect_uri 사용, 없으면 환경 변수 사용
-        String redirectUri = redirect_uri != null && !redirect_uri.isEmpty()
-                ? redirect_uri
-                : System.getenv("KAKAO_REDIRECT_URI");
+        // redirectUri가 없으면 동적으로 생성 (현재 요청의 호스트 기반)
+        if (redirectUri == null || redirectUri.isEmpty()) {
+            String scheme = request.getScheme(); // http or https
+            String serverName = request.getServerName(); // localhost or domain
+            int serverPort = request.getServerPort(); // 8080
 
+            // 포트가 기본 포트(80, 443)가 아니면 포함
+            if ((scheme.equals("http") && serverPort != 80) ||
+                    (scheme.equals("https") && serverPort != 443)) {
+                redirectUri = String.format("%s://%s:%d/kakao/callback", scheme, serverName, serverPort);
+            } else {
+                redirectUri = String.format("%s://%s/kakao/callback", scheme, serverName);
+            }
+
+            System.out.println("⚠️ KAKAO_REDIRECT_URI 환경 변수가 설정되지 않아 동적으로 생성: " + redirectUri);
+        }
+
+        // clientId 검증
         if (clientId == null || clientId.isEmpty()) {
             System.err.println("경고: KAKAO_REST_API_KEY가 설정되지 않았습니다.");
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("message", "카카오 REST API KEY가 설정되지 않았습니다.");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-
-        if (redirectUri == null || redirectUri.isEmpty()) {
-            System.err.println("경고: 리다이렉트 URI가 설정되지 않았습니다.");
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "카카오 리다이렉트 URI가 설정되지 않았습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
 
@@ -68,8 +73,10 @@ public class KakaoController {
                 clientId,
                 encodedRedirectUri);
 
-        System.out.println("카카오 인증 URL 생성 완료");
+        System.out.println("=== 카카오 인증 URL 생성 ===");
+        System.out.println("Client ID: " + clientId);
         System.out.println("Redirect URI: " + redirectUri);
+        System.out.println("Auth URL: " + authUrl);
         System.out.println("============================");
 
         return ResponseEntity.ok(Map.of(
