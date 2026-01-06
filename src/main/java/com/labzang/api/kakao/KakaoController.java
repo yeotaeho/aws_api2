@@ -19,7 +19,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping({"/kakao", "/auth/kakao"})
+@RequestMapping({ "/kakao", "/auth/kakao" })
 @RequiredArgsConstructor
 public class KakaoController {
 
@@ -92,8 +92,11 @@ public class KakaoController {
         System.out.println("Error Description: " + error_description);
         System.out.println("============================");
 
-        // 프론트엔드 콜백 URL
-        String frontendCallbackUrl = "http://localhost:3000/kakao-callback";
+        // 프론트엔드 도메인 (환경 변수에서 가져오거나 기본값 사용)
+        String frontendUrl = System.getenv("FRONTEND_URL");
+        if (frontendUrl == null || frontendUrl.isEmpty()) {
+            frontendUrl = "http://localhost:3000";
+        }
 
         try {
             if (code != null) {
@@ -232,9 +235,10 @@ public class KakaoController {
             String userId = userInfo.get("kakao_id").toString();
 
             // 6. 카카오 OAuth 원본 토큰을 Redis에 저장
-            long kakaoTokenExpireTime = expiresIn != null ? Long.parseLong(expiresIn.toString()) : 21600; // 기본 6시간 (카카오 기본값)
+            long kakaoTokenExpireTime = expiresIn != null ? Long.parseLong(expiresIn.toString()) : 21600; // 기본 6시간 (카카오
+                                                                                                          // 기본값)
             tokenService.saveOAuthAccessToken("kakao", userId, kakaoAccessToken, kakaoTokenExpireTime);
-            
+
             if (kakaoRefreshToken != null) {
                 // Refresh Token은 60일 유효 (카카오 기본값)
                 tokenService.saveOAuthRefreshToken("kakao", userId, kakaoRefreshToken, 5184000);
